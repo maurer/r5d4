@@ -83,7 +83,10 @@ impl<M: ManageConnection> Pool<M> {
         }))
     }
     fn get(&self) -> ConnFuture<M> {
-        ConnFuture { pool: (*self).clone() }
+        ConnFuture {
+            pool: (*self).clone(),
+            live: RefCell::new(None),
+        }
     }
     // We lost a connection
     fn apologize(&self) {
@@ -127,12 +130,17 @@ impl<M: ManageConnection> Pool<M> {
 
 struct ConnFuture<M: ManageConnection> {
     pool: Pool<M>,
+    live: RefCell<Option<BoxFuture<M::Connection, M::Error>>>,
 }
 
 impl<M: ManageConnection> Future for ConnFuture<M> {
     type Item = M::Connection;
     type Error = M::Error;
     fn poll(&mut self) -> Poll<M::Connection, M::Error> {
+        match self.live.borrow_mut().as_mut() {
+            None => (),
+            Some(fut) => return fut.poll(),
+        }
         match self.pool.pop_conn() {
             Some(conn) => Ok(Async::Ready(conn)),
             None => {
@@ -141,8 +149,11 @@ impl<M: ManageConnection> Future for ConnFuture<M> {
                     self.pool.block(park());
                     Ok(Async::NotReady)
                 } else {
-                    // TODO unsure of legitimacy here
-                    self.pool.connect().poll()
+                    *self.live.borrow_mut() = Some(self.pool.connect());
+                    match self.live.borrow_mut().as_mut() {
+                        None => unreachable!(),
+                        Some(fut) => fut.poll(),
+                    }
                 }
             }
         }
