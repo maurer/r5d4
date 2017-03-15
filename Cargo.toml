@@ -1,0 +1,15 @@
+[package]
+name = "r5d4"
+version = "0.1.0"
+authors = ["Matthew Maurer <matthew.r.maurer@gmail.com>"]
+
+[dependencies]
+log = "0.3"
+tokio-core = "*"
+futures = "*"
+
+[dev-dependencies]
+tokio-postgres = "*"
+
+[dev-dependencies.r5d4_postgres]
+path = "./r5d4_postgres"

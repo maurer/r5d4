@@ -1,0 +1,15 @@
+[package]
+name = "r5d4_postgres"
+version = "0.1.0"
+authors = ["Matthew Maurer maurer@matthewmaurer.org"]
+license = "MIT"
+description = "Postgres support for the r5d4 connection pool"
+keywords = ["postgres", "sql", "pool", "database"]
+
+[dependencies]
+futures = "*"
+tokio-postgres = "0.2"
+tokio-core= "*"
+
+[dependencies.r5d4]
+path = "../"
