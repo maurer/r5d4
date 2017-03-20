@@ -43,8 +43,32 @@ impl error::Error for Error {
     }
 }
 
+/// Storage for `postgres::tls::TlsMode`, that specify the TLS support required for any new connection
+pub enum TlsMode {
+    /// Connections must use TLS.
+    Require(Box<Fn() -> Box<Handshake> + Send + Sync>),
+    /// Connections should use TLS if available
+    Prefer(Box<Fn() -> Box<Handshake> + Send + Sync>),
+    /// Connections will not use TLS
+    None,
+}
+
+impl TlsMode {
+    /// Create the `tokio_postgres::TlsMode` corresponding to `self`
+    fn make_postgres_tlsmode(&self) -> tokio_postgres::TlsMode {
+        match self {
+            &TlsMode::None => tokio_postgres::TlsMode::None,
+            &TlsMode::Require(ref q)
+                => tokio_postgres::TlsMode::Require((*q)()),
+            &TlsMode::Prefer(ref q)
+                => tokio_postgres::TlsMode::Prefer((*q)()),
+        }
+    }
+}
+
 pub struct PostgresConnectionManager {
     params: ConnectParams,
+    tlsmode: TlsMode,
 }
 
 impl PostgresConnectionManager {
@@ -52,7 +76,7 @@ impl PostgresConnectionManager {
     ///
     /// See `postgres::Connection::connect` for a description of the parameter
     /// types.
-    pub fn new<T>(params: T)
+    pub fn new<T>(params: T, tls: TlsMode)
                   -> Result<PostgresConnectionManager, tokio_postgres::error::ConnectError>
         where T: IntoConnectParams
     {
@@ -61,7 +85,7 @@ impl PostgresConnectionManager {
             Err(err) => return Err(tokio_postgres::error::ConnectError::ConnectParams(err)),
         };
 
-        Ok(PostgresConnectionManager { params: params })
+        Ok(PostgresConnectionManager { params: params, tlsmode: tls })
     }
 }
 
@@ -71,7 +95,7 @@ impl r5d4::ManageConnection for PostgresConnectionManager {
 
     fn connect(&self, handle: &Handle) -> r5d4::BoxFuture<tokio_postgres::Connection, Error> {
         tokio_postgres::Connection::connect(self.params.clone(),
-                                            tokio_postgres::TlsMode::None,
+                                            self.tlsmode.make_postgres_tlsmode(),
                                             handle)
             .map_err(Error::Connect)
             .boxed()

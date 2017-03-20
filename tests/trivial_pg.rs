@@ -12,7 +12,7 @@ use r5d4::Pool;
 fn main() {
     let uri = "/tmp";
     let mut core = Core::new().unwrap();
-    let manager = PostgresConnectionManager::new(uri).unwrap();
+    let manager = PostgresConnectionManager::new(uri, r5d4_postgres::TlsMode::None).unwrap();
     let pool = Pool::new(r5d4::Config::default(), manager, core.handle());
     let trivial_future = pool.with_connection(|conn| {
         conn.batch_execute("SELECT 1")
