@@ -19,4 +19,5 @@ fn main() {
             .map(|x| ((), x))
             .map_err(|x| (r5d4_postgres::Error::Other(x), None))
     });
+    core.run(trivial_future).unwrap();
 }
